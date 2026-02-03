@@ -1,11 +1,371 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <title>내 첫 GitHub 웹사이트</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HOSPITAL MARKETING PRO</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        body { font-family: 'Pretendard', sans-serif; background-color: #0E1117; color: #E6EDF3; }
+        
+        /* 커스텀 스크롤바 */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #161B22; }
+        ::-webkit-scrollbar-thumb { background: #30363D; border-radius: 4px; }
+        
+        /* 탭 스타일 */
+        .tab-active { border-bottom: 2px solid #58A6FF; color: #FFFFFF; font-weight: bold; }
+        .tab-inactive { color: #8B949E; }
+        
+        /* 카드 스타일 */
+        .card { background-color: #161B22; border: 1px solid #30363D; border-radius: 8px; padding: 20px; }
+        
+        /* 버튼 스타일 */
+        .btn-primary { background-color: #238636; color: white; transition: 0.2s; }
+        .btn-primary:hover { background-color: #2EA043; }
+        .btn-secondary { background-color: #21262D; border: 1px solid #30363D; color: #C9D1D9; }
+        .btn-active { background-color: #1F6FEB; color: white; border: none; }
+        
+        /* 입력창 스타일 */
+        input, select { background-color: #0D1117; border: 1px solid #30363D; color: white; padding: 10px; border-radius: 6px; width: 100%; }
+        
+        /* 테이블 스타일 */
+        table { width: 100%; border-collapse: collapse; }
+        th { background-color: #161B22; color: #8B949E; padding: 12px; text-align: left; font-size: 0.9rem; border-bottom: 1px solid #30363D; }
+        td { padding: 12px; border-bottom: 1px solid #30363D; font-size: 0.9rem; }
+        tr:hover { background-color: #1F242C; }
+        a { color: #58A6FF; text-decoration: none; }
+        
+        /* 로딩 스피너 */
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #58A6FF; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
 </head>
 <body>
-  <h1>🎉 성공!</h1>
-  <p>GitHub Pages로 만든 내 웹사이트입니다.</p>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- [설정] 키워드 확장 리스트 ---
+        const KEYWORD_EXPANSION = {
+            "피부과": ["피부과", "피부과추천", "피부과전문의", "야간진료"],
+            "성형외과": ["성형외과", "눈성형", "코성형", "재수술"],
+            "리프팅": ["리프팅", "울쎄라", "써마지", "인모드", "슈링크", "올리지오", "텐써마", "티타늄"],
+            "스킨부스터": ["스킨부스터", "리쥬란", "쥬베룩", "엑소좀", "스킨바이브"],
+            "여드름": ["여드름", "여드름흉터", "아쿠아필", "PDT", "압출"],
+            "제모": ["제모", "레이저제모", "아포지", "젠틀맥스"],
+            "다이어트": ["다이어트", "지방분해주사", "삭센다", "람스"],
+            "탈모": ["탈모", "모발이식", "두피관리"],
+            "한의원": ["한의원", "교통사고", "추나요법", "다이어트한약"],
+            "뷰티": ["에스테틱", "경락", "윤곽관리", "신부관리"]
+        };
+
+        // --- [유틸] 날짜 계산 및 숫자 포맷 ---
+        const getDaysAgo = (dateStr) => {
+            if(!dateStr) return 999;
+            const postDate = new Date(dateStr.slice(0,4), dateStr.slice(4,6)-1, dateStr.slice(6,8));
+            const now = new Date();
+            const diff = now - postDate;
+            return Math.floor(diff / (1000 * 60 * 60 * 24));
+        };
+
+        const formatNumber = (num) => {
+            if(num >= 10000) return (num/10000).toFixed(1) + '만';
+            if(num >= 1000) return (num/1000).toFixed(1) + '천';
+            return num;
+        };
+
+        // --- [로직] 블로그 등급 계산 ---
+        const calculateBlogRank = (rank, daysAgo) => {
+            if (rank <= 5) {
+                if (daysAgo <= 30) return "👑 S+ (최신 최적)";
+                if (daysAgo <= 180) return "🏆 S (상위 노출)";
+                return "🛡️ S- (알박기)";
+            } else if (rank <= 15) {
+                if (daysAgo <= 30) return "🚀 A+ (급상승)";
+                if (daysAgo <= 180) return "🥇 A (우수)";
+                return "💤 A- (유지)";
+            } else if (rank <= 30) {
+                return "🥈 B (준수)";
+            } else {
+                return "🌱 C (일반)";
+            }
+        };
+
+        // --- [컴포넌트] 메인 앱 ---
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('blog');
+            const [apiKeys, setApiKeys] = useState({ naverId: '', naverSecret: '', youtubeKey: '' });
+            
+            // 블로그 상태
+            const [blogInputs, setBlogInputs] = useState({ region: '분당', category: '피부과' });
+            const [blogData, setBlogData] = useState([]);
+            const [blogLoading, setBlogLoading] = useState(false);
+            const [selectedKeyword, setSelectedKeyword] = useState("ALL");
+            const [periodFilter, setPeriodFilter] = useState("all"); // all, recent, revisit, long, old
+
+            // 유튜브 상태
+            const [ytInputs, setYtInputs] = useState({ keyword: '피부과 후기' });
+            const [ytData, setYtData] = useState([]);
+            const [ytLoading, setYtLoading] = useState(false);
+
+            // --- API 호출 함수: 블로그 ---
+            const fetchBlogs = async () => {
+                if (!apiKeys.naverId || !apiKeys.naverSecret) {
+                    alert("네이버 API 키를 먼저 입력해주세요!");
+                    return;
+                }
+                setBlogLoading(true);
+                setBlogData([]);
+
+                const mainKw = `${blogInputs.region} ${blogInputs.category}`;
+                const subKws = (KEYWORD_EXPANSION[blogInputs.category] || []).map(k => `${blogInputs.region} ${k}`);
+                const allKws = [mainKw, ...subKws]; // 검색 수 제한 없이 전체
+
+                let allResults = [];
+
+                try {
+                    // 비동기 병렬 처리는 API 제한 걸릴 수 있으므로 순차 처리 또는 Promise.all 제한
+                    // 여기선 간단하게 5개만 시범적으로 (CORS 이슈 대비)
+                    for (const kw of allKws.slice(0, 5)) { 
+                        const url = `https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(kw)}&display=20&sort=sim`;
+                        const res = await fetch(url, {
+                            headers: {
+                                "X-Naver-Client-Id": apiKeys.naverId,
+                                "X-Naver-Client-Secret": apiKeys.naverSecret
+                            }
+                        });
+                        const data = await res.json();
+                        
+                        if (data.items) {
+                            const processed = data.items.map((item, idx) => {
+                                const rank = idx + 1;
+                                const days = getDaysAgo(item.postdate);
+                                return {
+                                    keyword: kw,
+                                    rank: rank,
+                                    title: item.title.replace(/<[^>]*>?/g, ''),
+                                    blogName: item.bloggername,
+                                    link: item.link,
+                                    postdate: item.postdate,
+                                    daysAgo: days,
+                                    tier: calculateBlogRank(rank, days),
+                                    type: (item.bloggername.includes('공식') || item.bloggername.includes('병원')) ? "🏥 병원공식" : "👤 일반"
+                                };
+                            });
+                            allResults = [...allResults, ...processed];
+                        }
+                    }
+                    // 중복 제거 (링크 기준)
+                    const uniqueResults = Array.from(new Set(allResults.map(a => a.link)))
+                        .map(link => allResults.find(a => a.link === link));
+                    
+                    setBlogData(uniqueResults);
+                    setSelectedKeyword("ALL");
+                } catch (error) {
+                    console.error(error);
+                    alert("API 호출 실패! CORS 확장프로그램을 확인하거나 API 키를 점검하세요.");
+                }
+                setBlogLoading(false);
+            };
+
+            // --- 데이터 필터링 로직 ---
+            const getFilteredBlogData = () => {
+                let data = blogData;
+                
+                // 1. 키워드 필터
+                if (selectedKeyword !== "ALL") {
+                    data = data.filter(item => item.keyword === selectedKeyword);
+                }
+
+                // 2. 기간 필터
+                if (periodFilter === 'recent') data = data.filter(i => i.daysAgo <= 30);
+                else if (periodFilter === 'revisit') data = data.filter(i => i.daysAgo > 30 && i.daysAgo <= 90);
+                else if (periodFilter === 'long') data = data.filter(i => i.daysAgo > 90 && i.daysAgo <= 180);
+                else if (periodFilter === 'old') data = data.filter(i => i.daysAgo > 180);
+
+                return data;
+            };
+
+            // --- 렌더링 ---
+            return (
+                <div className="max-w-7xl mx-auto p-4">
+                    {/* Header */}
+                    <div className="mb-8">
+                        <h1 className="text-3xl font-bold text-blue-400">HOSPITAL MARKETING PRO</h1>
+                        <p className="text-gray-400">Data-Driven Marketing Intelligence Dashboard (JS Edition)</p>
+                    </div>
+
+                    {/* API Key Settings */}
+                    <div className="card mb-6">
+                        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">🔑 API 키 설정 (보안: 브라우저에만 저장됨)</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <input type="text" placeholder="Naver Client ID" value={apiKeys.naverId} onChange={e => setApiKeys({...apiKeys, naverId: e.target.value})} />
+                            <input type="password" placeholder="Naver Client Secret" value={apiKeys.naverSecret} onChange={e => setApiKeys({...apiKeys, naverSecret: e.target.value})} />
+                            <input type="password" placeholder="YouTube API Key" value={apiKeys.youtubeKey} onChange={e => setApiKeys({...apiKeys, youtubeKey: e.target.value})} />
+                        </div>
+                        <p className="text-xs text-red-400 mt-2">* CORS 에러 발생 시 크롬 확장프로그램(Allow CORS)을 활성화해야 작동할 수 있습니다.</p>
+                    </div>
+
+                    {/* Tabs */}
+                    <div className="flex w-full bg-[#0E1117] border-b border-gray-700 mb-6">
+                        {['상권 분석(Beta)', '블로그 분석', '유튜브 분석', '인스타 분석', '내 채널 성과'].map((tab, idx) => {
+                            const tabKey = ['loc', 'blog', 'yt', 'insta', 'my'][idx];
+                            return (
+                                <button 
+                                    key={tabKey}
+                                    onClick={() => setActiveTab(tabKey)}
+                                    className={`flex-1 py-3 text-center transition-colors ${activeTab === tabKey ? 'tab-active' : 'tab-inactive hover:text-gray-300'}`}
+                                >
+                                    {tab}
+                                </button>
+                            )
+                        })}
+                    </div>
+
+                    {/* Content: Blog Tab */}
+                    {activeTab === 'blog' && (
+                        <div className="card">
+                            <div className="premium-box mb-6">
+                                <h4 className="font-bold text-lg mb-2">💡 Insight</h4>
+                                <p>선택하신 카테고리의 <b>연관 세부 시술명(ex. 울쎄라, 인모드 등)</b>까지 자동으로 확장 검색하여, 숨겨진 <b>상위 노출 블로거</b>를 찾아냅니다.</p>
+                            </div>
+
+                            {/* Search Form */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 items-end">
+                                <div>
+                                    <label className="block text-gray-400 text-sm mb-1">지역명</label>
+                                    <input type="text" value={blogInputs.region} onChange={e => setBlogInputs({...blogInputs, region: e.target.value})} />
+                                </div>
+                                <div>
+                                    <label className="block text-gray-400 text-sm mb-1">카테고리</label>
+                                    <select value={blogInputs.category} onChange={e => setBlogInputs({...blogInputs, category: e.target.value})}>
+                                        {Object.keys(KEYWORD_EXPANSION).map(k => <option key={k} value={k}>{k}</option>)}
+                                    </select>
+                                </div>
+                                <button onClick={fetchBlogs} className="btn-primary w-full h-[46px] rounded-md font-bold">
+                                    {blogLoading ? '분석 중...' : '📊 통합 분석 시작'}
+                                </button>
+                            </div>
+
+                            {/* Keywords Grid */}
+                            {blogData.length > 0 && (
+                                <div className="mb-6">
+                                    <h5 className="text-gray-300 font-bold mb-3">📂 분석할 키워드 선택 (필터 유지됨)</h5>
+                                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                                        <button 
+                                            onClick={() => setSelectedKeyword("ALL")}
+                                            className={`p-2 rounded text-sm ${selectedKeyword === "ALL" ? 'btn-active' : 'btn-secondary'}`}
+                                        >
+                                            ALL (통합 분석)
+                                        </button>
+                                        {[...new Set(blogData.map(d => d.keyword))].map(k => (
+                                            <button 
+                                                key={k} 
+                                                onClick={() => setSelectedKeyword(k)}
+                                                className={`p-2 rounded text-sm truncate ${selectedKeyword === k ? 'btn-active' : 'btn-secondary'}`}
+                                            >
+                                                {k}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Period Filter */}
+                            {blogData.length > 0 && (
+                                <div className="flex flex-wrap gap-4 mb-4 items-center bg-[#0D1117] p-3 rounded border border-[#30363D]">
+                                    <span className="text-gray-400 font-bold text-sm">⏳ 작성 시기:</span>
+                                    {[
+                                        {k: 'all', l: '전체'},
+                                        {k: 'recent', l: '🔴 최신글 (1달내)'},
+                                        {k: 'revisit', l: '재방문 (1~3달)'},
+                                        {k: 'long', l: '장기 (3~6달)'},
+                                        {k: 'old', l: '이탈 (6달+)'}
+                                    ].map(f => (
+                                        <label key={f.k} className="flex items-center gap-2 cursor-pointer">
+                                            <input 
+                                                type="radio" 
+                                                name="period" 
+                                                checked={periodFilter === f.k} 
+                                                onChange={() => setPeriodFilter(f.k)}
+                                                className="w-4 h-4"
+                                            />
+                                            <span className={`text-sm ${periodFilter === f.k ? 'text-white font-bold' : 'text-gray-500'}`}>{f.l}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Result Table */}
+                            {blogLoading ? (
+                                <div className="py-10 text-center"><div className="loader"></div><p className="mt-4 text-gray-400">데이터를 수집하고 분석 중입니다...</p></div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    {blogData.length > 0 ? (
+                                        <>
+                                            <p className="mb-2 text-sm text-gray-400">검색된 블로그: <span className="text-white font-bold">{getFilteredBlogData().length}</span>건</p>
+                                            <table className="w-full">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Rank</th>
+                                                        <th>블로그 지수</th>
+                                                        <th>Type</th>
+                                                        <th>블로그명</th>
+                                                        <th>제목</th>
+                                                        <th>작성일</th>
+                                                        <th>링크</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {getFilteredBlogData().map((item, i) => (
+                                                        <tr key={i}>
+                                                            <td className="font-bold">{item.rank}</td>
+                                                            <td>
+                                                                <span className={`text-xs px-2 py-1 rounded ${item.tier.includes('S') ? 'bg-red-900 text-red-200' : item.tier.includes('A') ? 'bg-blue-900 text-blue-200' : 'bg-gray-700'}`}>
+                                                                    {item.tier}
+                                                                </span>
+                                                            </td>
+                                                            <td className="text-xs text-gray-400">{item.type}</td>
+                                                            <td className="text-gray-300 truncate max-w-[100px]">{item.blogName}</td>
+                                                            <td className="text-white truncate max-w-[250px]">{item.title}</td>
+                                                            <td className="text-gray-400 text-xs">{item.postdate} ({item.daysAgo}일전)</td>
+                                                            <td><a href={item.link} target="_blank">보기</a></td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </>
+                                    ) : (
+                                        <div className="text-center py-10 text-gray-500">
+                                            데이터가 없습니다. 검색을 시작해주세요.
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Placeholder for other tabs */}
+                    {activeTab !== 'blog' && (
+                        <div className="card text-center py-20">
+                            <h3 className="text-xl font-bold mb-4">🚧 {activeTab.toUpperCase()} 기능 준비 중</h3>
+                            <p className="text-gray-400">이 파일은 '블로그 분석' 기능을 중심으로 자바스크립트로 변환되었습니다.<br/>유튜브/인스타 기능도 동일한 방식으로 API 키를 연결하여 확장할 수 있습니다.</p>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
 </html>
